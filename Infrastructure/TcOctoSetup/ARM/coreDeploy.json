@@ -1,0 +1,122 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "resourceName" :{
+          "type": "string"
+      }
+    },
+    "variables": {
+      "virtualNetworkName" : "[concat(parameters('resourceName'), '-network')]",
+      "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
+      "diagnoseStorageAccountName" : "[concat('diag', variables('storageAccountName'))]",
+      "networkSecurityGroupName" : "[concat(parameters('resourceName'), '-securityGroup')]",
+      "automationAccountName" : "[concat(parameters('resourceName'), '-autoacc')]"
+    },
+    "resources": [
+      {
+          "name": "[variables('storageAccountName')]",
+          "type": "Microsoft.Storage/storageAccounts",
+          "apiVersion": "2015-06-15",
+          "location": "[resourceGroup().location]",
+          "properties": {
+              "accountType": "Standard_LRS"
+          }
+      },
+      {
+          "name": "[variables('diagnoseStorageAccountName')]",
+          "type": "Microsoft.Storage/storageAccounts",
+          "apiVersion": "2015-06-15",
+          "location": "[resourceGroup().location]",
+          "properties": {
+              "accountType": "Standard_LRS"
+          }
+      },
+      {
+          "name": "[variables('virtualNetworkName')]",
+          "type": "Microsoft.Network/virtualNetworks",
+          "apiVersion": "2017-08-01",
+          "location": "[resourceGroup().location]",
+          "properties": {
+              "addressSpace": {
+                  "addressPrefixes": [
+                      "10.0.0.0/24"
+                  ]
+              },
+              "subnets": [
+                  {
+                      "name": "default",
+                      "properties": {
+                          "addressPrefix": "10.0.0.0/24"
+                      }
+                  }
+              ]
+          }
+      },
+      {
+          "name": "[variables('networkSecurityGroupName')]",
+          "type": "Microsoft.Network/networkSecurityGroups",
+          "apiVersion": "2017-06-01",
+          "location": "[resourceGroup().location]",
+          "properties": {
+              "securityRules": [
+                  {
+                      "name": "default-allow-rdp",
+                      "properties": {
+                          "priority": 1000,
+                          "protocol": "Tcp",
+                          "access": "Allow",
+                          "direction": "Inbound",
+                          "sourceAddressPrefix": "*",
+                          "sourcePortRange": "*",
+                          "destinationAddressPrefix": "*",
+                          "destinationPortRange": "3389"
+                      }
+                  }
+              ]
+          }
+      },
+      {
+            "name": "[variables('automationAccountName')]",
+            "type": "Microsoft.Automation/automationAccounts",
+            "apiVersion": "2015-10-31",
+            "properties": {
+                "sku": {
+                "name": "Free"
+                }
+            },
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "resources": [
+                
+            ]
+        }
+    ],
+    "outputs": { 
+        "storageAccountName": {
+          "type": "string",
+          "value": "[variables('storageAccountName')]"
+        },
+        "diagnoseStorageAccountName": {
+            "type": "string",
+            "value": "[variables('diagnoseStorageAccountName')]"
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "value": "[variables('virtualNetworkName')]"
+        },
+        "networkSecurityGroupName": {
+            "type": "string",
+            "value": "[variables('networkSecurityGroupName')]"
+        },
+        "automationAccountName" : {
+            "type": "string",
+            "value": "[variables('automationAccountName')]"
+        },
+        "storageAccountKey": {
+            "type": "string",
+            "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('StorageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+        }
+     }
+  }
+  

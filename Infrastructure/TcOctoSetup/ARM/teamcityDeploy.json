@@ -1,0 +1,162 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "resourceName" :{
+          "type": "string"
+      },
+      "adminUsername": {
+          "type": "string"
+      },
+      "adminPassword": {
+          "type": "securestring"
+      },
+      "virtualNetworkName" :{
+          "type": "string"
+      },
+      "storageAccountName": {
+        "type": "string"
+      },
+      "sasToken": {
+        "type": "securestring"
+      },
+      "diagnoseStorageAccountName":{
+          "type": "string"
+      },
+      "networkSecurityGroupName": {
+          "type": "string"
+      },
+      "teamcityDscPath": {
+        "type": "string"
+      },
+      "teamcityDscScript": {
+        "type": "string"
+      }
+    },
+    "variables": {
+      "vnetId": "[resourceId(parameters('resourceName'),'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
+      "subnetRef": "[concat(variables('vnetId'), '/subnets/default')]",
+      "teamcityServerName" : "TeamcityServer",
+      "teamcityVmSize" : "Standard_D1_v2",
+      "networkInterfacePostfix" : "-nic",
+      "publicIpAddressName" : "[concat(variables('teamcityServerName'), '-publicIp')]"
+    },
+    "resources": [
+      {
+          "name": "[variables('teamcityServerName')]",
+          "type": "Microsoft.Compute/virtualMachines",
+          "apiVersion": "2016-04-30-preview",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[concat('Microsoft.Network/networkInterfaces/', variables('teamcityServerName'), variables('networkInterfacePostfix'))]"
+          ],
+          "properties": {
+              "osProfile": {
+                  "computerName": "[variables('teamcityServerName')]",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]",
+                  "windowsConfiguration": {
+                      "provisionVmAgent": "true"
+                  }
+              },
+              "hardwareProfile": {
+                  "vmSize": "[variables('teamcityVmSize')]"
+              },
+              "storageProfile": {
+                  "imageReference": {
+                      "publisher": "MicrosoftWindowsServer",
+                      "offer": "WindowsServer",
+                      "sku": "2016-Datacenter",
+                      "version": "latest"
+                  },
+                  "osDisk": {
+                      "createOption": "FromImage",
+                      "vhd": {
+                          "uri": "[concat(concat(reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-06-15').primaryEndpoints['blob'], 'vhds/'), variables('teamcityServerName'), '20171106133807.vhd')]"
+                      },
+                      "name": "[variables('teamcityServerName')]"
+                  },
+                  "dataDisks": []
+              },
+              "networkProfile": {
+                  "networkInterfaces": [
+                      {
+                          "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('teamcityServerName'), variables('networkInterfacePostfix')))]"
+                      }
+                  ]
+              },
+              "diagnosticsProfile": {
+                  "bootDiagnostics": {
+                      "enabled": true,
+                      "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('diagnoseStorageAccountName')), '2015-06-15').primaryEndpoints['blob']]"
+                  }
+              }
+          }
+      },
+      {
+          "name": "[concat(variables('teamcityServerName'), variables('networkInterfacePostfix'))]",
+          "type": "Microsoft.Network/networkInterfaces",
+          "apiVersion": "2016-09-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[concat('Microsoft.Network/publicIpAddresses/', variables('publicIpAddressName'))]"
+          ],
+          "properties": {
+              "ipConfigurations": [
+                  {
+                      "name": "ipconfig1",
+                      "properties": {
+                          "subnet": {
+                              "id": "[variables('subnetRef')]"
+                          },
+                          "privateIPAllocationMethod": "Dynamic",
+                          "publicIpAddress": {
+                              "id": "[resourceId(parameters('resourceName'),'Microsoft.Network/publicIpAddresses', variables('publicIpAddressName'))]"
+                          }
+                      }
+                  }
+              ],
+              "networkSecurityGroup": {
+                  "id": "[resourceId(parameters('resourceName'), 'Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
+              }
+          }
+      },
+      {
+          "name": "[variables('publicIpAddressName')]",
+          "type": "Microsoft.Network/publicIpAddresses",
+          "apiVersion": "2017-08-01",
+          "location": "[resourceGroup().location]",
+          "properties": {
+              "publicIpAllocationMethod": "Dynamic"
+          }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "[concat(variables('teamcityServerName'),'/dscExtension')]",
+        "apiVersion": "2015-05-01-preview",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "[concat('Microsoft.Compute/virtualMachines/', variables('teamcityServerName'))]"
+        ],
+        "properties": {
+          "publisher": "Microsoft.Powershell",
+          "type": "DSC",
+          "typeHandlerVersion": "2.2",
+          "autoUpgradeMinorVersion": true,
+          "forceUpdateTag": "2",
+           "settings": {
+                "WMFVersion": "latest",
+                "ModulesUrl": "[concat(parameters('teamcityDscPath'), parameters('sasToken'))]",
+                "ConfigurationFunction": "[concat(parameters('teamcityDscScript'), '\\TeamcityServer')]"
+          }
+        }
+      }
+    ],
+    "outputs": {
+        "teamcityVmName":{
+            "type": "string",
+            "value": "[variables('teamcityServerName')]"
+        }
+     }
+  }
+  

@@ -1,0 +1,92 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceName" :{
+            "type": "string"
+        },
+        "adminUsername": {
+            "type": "string"
+        },
+        "adminPassword": {
+            "type": "securestring"
+        }
+    },
+    "variables": {
+        "databaseServer1" : "[toLower(concat(parameters('resourceName'),'-dbnode1'))]",
+        "octopusDatabase" : "octopus",
+        "teamcityDatabase" : "teamcity"
+    },
+    "resources": [
+        {
+            "apiVersion": "2015-05-01-preview",
+            "location": "[resourceGroup().location]",
+            "name": "[variables('databaseServer1')]",
+            "properties": {
+                "administratorLogin": "[parameters('adminUsername')]",
+                "administratorLoginPassword": "[parameters('adminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('databaseServer1'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "[variables('octopusDatabase')]",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS",
+                        "edition": "Basic",
+                        "maxSizeBytes": "524288000",
+                        "requestedServiceObjectiveName": "Basic"
+                    },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('databaseServer1'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "[variables('teamcityDatabase')]",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS",
+                        "edition": "Basic",
+                        "maxSizeBytes": "524288000",
+                        "requestedServiceObjectiveName": "Basic"
+                    },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('databaseServer1'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    },
+                    "type": "firewallrules"
+                }
+            ],
+            "type": "Microsoft.Sql/servers"
+        }
+    ],
+    "outputs": {
+        "databaseObject": {
+            "type": "object",
+            "value": "[reference(concat('Microsoft.Sql/servers/', variables('databaseServer1')))]"
+          },
+          "octopusDatabaseName" : {
+              "type": "string",
+              "value": "[variables('octopusDatabase')]"
+          },
+          "teamcityDatabaseName" : {
+              "type": "string",
+              "value": "[variables('teamcityDatabase')]"
+          }
+    }
+}
