@@ -44,7 +44,7 @@ Configuration OctopusServer
             SqlDbConnectionString = "Data Source=tcp:$databaseServer,1433;Database=$octopusDatabase;User Id=$($OctopusAdminCredentials.UserName)@$databaseServer;Password=$($OctopusAdminCredentials.GetNetworkCredential().Password);Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
             # The admin user to create
             OctopusAdminUsername = $OctopusAdminCredentials.UserName
-            OctopusAdminPassword = $OctopusAdminCredentials.Password
+            OctopusAdminPassword = $($OctopusAdminCredentials.GetNetworkCredential().Password)
 
             # optional parameters
             AllowUpgradeCheck = $true
